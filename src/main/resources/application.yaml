@@ -1,0 +1,6 @@
+ktor:
+    application:
+        modules:
+            - cn.huohuas001.ApplicationKt.module
+    deployment:
+        port: 2087
