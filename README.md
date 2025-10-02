@@ -1,7 +1,7 @@
 # HuHoBot WebSocket-Kotlin 服务端
 
-[![GitHub Release](https://img.shields.io/github/v/release/HuHoBot/KtWebSocketServer?style=flat-square)](https://github.com/HuHoBot/KtWebSocketServer/releases)
-[![License](https://img.shields.io/github/license/HuHoBot/KtWebSocketServer?style=flat-square)](https://github.com/HuHoBot/KtWebSocketServer/blob/main/LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/HuHoBot/KotlinMainServer?style=flat-square)](https://github.com/HuHoBot/KotlinMainServer/releases)
+[![License](https://img.shields.io/github/license/HuHoBot/KotlinMainServer?style=flat-square)](https://github.com/HuHoBot/KotlinMainServer/blob/main/LICENSE)
 
 轻量级 Minecraft 服务器通信中台，实现 WebSocket 协议的双向通信桥梁。
 
