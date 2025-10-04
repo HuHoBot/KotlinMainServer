@@ -24,7 +24,9 @@ object Server_handle_BindConfirm: BaseEvent() {
                 }
                 try {
                     val config: JSONObject = getServerConfig(serverId, isMoreGroup)
-                    if(mClient ==  null) return@Consumer
+                    if(mClient ==  null) {
+                        return@Consumer
+                    }
                     if (mClient!!.sendMessage(ServerSendEvent.ServerSendConfig, config, mPackId)) {
                         val bindServerPack = JSONObject()
                         bindServerPack["group"] = groupOpenid

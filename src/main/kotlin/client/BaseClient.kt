@@ -26,6 +26,8 @@ abstract class BaseClient(session: ClientSession, clientType: ClientType) {
     init {
         mClientType = clientType
         mSession = session
+        //连接进入时更新最后一次心跳时间
+        updateLastHeartbeatTime()
     }
 
     /**

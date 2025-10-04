@@ -22,7 +22,7 @@ object ClientManager {
     //等待BotClient连接队列
     private val waitingBotClientList: MutableMap<String, ServerClient> = ConcurrentHashMap<String, ServerClient>()
     //心跳超时时间
-    private val HeartbeatTimeOut: Long = 60*1000
+    private const val HeartbeatTimeOut: Long = 60*1000
 
     private var mBotClient: BotClient? = null
     //心跳检测协程
@@ -32,7 +32,7 @@ object ClientManager {
         // 每隔5秒检查一次心跳，替代原来的 scheduler.scheduleAtFixedRate
         coroutineScope.launch {
             while (isActive) {
-                delay(15*1000) // 5秒延迟
+                delay(20*1000)
                 checkHeartbeats()
             }
         }
@@ -216,6 +216,4 @@ object ClientManager {
             false
         }
     }
-
-
 }

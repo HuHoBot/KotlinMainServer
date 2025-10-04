@@ -82,7 +82,7 @@ object WebsocketServer {
 
         // 添加10秒握手超时检测
         coroutineScope.launch {
-            delay(10000)
+            delay(15*1000)
             try {
                 val serverPackage = ClientManager.getServerPackageBySession(session)
                 val botClient = ClientManager.getBotClient()
@@ -116,6 +116,7 @@ object WebsocketServer {
     }
 
     fun handleError(session: WebSocketSession, error: Exception) {
+        coroutineScope.launch { session.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "Error Message.")) }
         logger.error("[Websocket] 处理消息时发生错误", error)
     }
 
@@ -194,18 +195,11 @@ object WebsocketServer {
         }
     }
 
-    private fun checkPackLegal(data: JSONObject){
-
-    }
-
     fun handleTextMessage(session: ClientSession, payload: String) {
         try {
             val data = JSONObject.parseObject(payload)
             val header = data.getJSONObject("header")
-            var body = data.getJSONObject("body")
-            if(body ==  null){
-                body = JSONObject()
-            }
+            val body = data.getJSONObject("body")?: JSONObject()
             val msgType = header.getString("type")
             val packId = header.getString("id")
 

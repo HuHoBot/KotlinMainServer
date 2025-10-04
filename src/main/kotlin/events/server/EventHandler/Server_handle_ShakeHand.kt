@@ -62,17 +62,23 @@ object Server_handle_ShakeHand: BaseEvent() {
 
     fun runShake(session: ClientSession): Boolean {
         val serverId: String? = mBody.getString("serverId")
-        val hashKey: String = mBody.getString("hashKey")
+        val hashKey: String? = mBody.getString("hashKey")
 
-        val platform: String = mBody.getString("platform")
-        val name: String = mBody.getString("name")
-        val version: String = mBody.getString("version")
+        val platform: String = mBody.getString("platform")?: "Unknown"
+        val name: String = mBody.getString("name")?: "Unknown"
+        val version: String = mBody.getString("version")?: "0.0.0"
 
         val serverClient = ServerClient(session)
 
         if (serverId == null || serverId.isEmpty()) {
             //拒绝连接
             serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, "serverId为空.")
+            return false
+        }
+
+        if (hashKey == null || hashKey.isEmpty()) {
+            //拒绝连接
+            serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, "hashKey为空.")
             return false
         }
 
