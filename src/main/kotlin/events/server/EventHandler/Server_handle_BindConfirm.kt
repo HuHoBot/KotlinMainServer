@@ -47,7 +47,7 @@ object Server_handle_BindConfirm: BaseEvent() {
                         )
                     }
                 } catch (e: Exception) {
-                    logger.error("[BindConfirm] 获取服务器配置时出现异常{}", e.message)
+                    logger.error("获取服务器配置时出现异常{}", e.message)
                 }
             })
         return false

@@ -1,4 +1,4 @@
-package events.bot;
+package events.bot
 
 import cn.huohuas001.client.BotClient
 import cn.huohuas001.client.ClientSession
@@ -14,8 +14,8 @@ import org.slf4j.LoggerFactory
 
 object Bot_handle_ShakeHand: BaseEvent() {
     override val logger: Logger = LoggerFactory.getLogger("Bot_handle_ShakeHand")
-    override fun run(): Boolean?{
-        return false;
+    override fun run(): Boolean{
+        return false
     }
 
     private fun botClientConnect(session: ClientSession, serverId: String, hashKey: String) {
@@ -27,7 +27,7 @@ object Bot_handle_ShakeHand: BaseEvent() {
         shakeHandPack["code"] = 1
         shakeHandPack["msg"] = ""
         botClient.sendMessage(BotClientSendEvent.BotShook, shakeHandPack)
-        logger.info("[Websocket] HuHoBot BotClient 已连接.")
+        logger.info("HuHoBot BotClient 已连接.")
 
         //重新清空WaitingList
         ClientManager.reShakeWaitingServer()
@@ -36,10 +36,6 @@ object Bot_handle_ShakeHand: BaseEvent() {
     fun runShake(session: ClientSession): Boolean{
         val serverId: String = mBody.getString("serverId")
         val hashKey: String = mBody.getString("hashKey")
-
-        val platform: String? = mBody.getString("platform")
-        val name: String? = mBody.getString("name")
-        val version: String? = mBody.getString("version")
 
         val shakeHandPack = JSONObject()
         val _botClient = BotClient(session)

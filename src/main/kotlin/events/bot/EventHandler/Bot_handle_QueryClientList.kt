@@ -19,18 +19,25 @@ object Bot_handle_QueryClientList: BaseEvent() {
                 return false
             }
 
-            // 2. 使用Java Stream API优化集合操作
-            val clientList = serverIdList.stream()
-                .filter { serverId: Any? -> serverId is String }
-                .map<String?> { serverId: Any -> serverId as String }
-                .map<String?> { serverIdStr: String ->
-                    val clientName: String? = ClientManager.queryOnlineClient(serverIdStr)
-                    clientName ?: "Unknown Server" // 处理可能的null返回值
-                }
-                .collect(
-                    { JSONArray() },
-                    BiConsumer { obj: JSONArray?, e: String? -> obj!!.add(e) },
-                    { obj: JSONArray?, c: JSONArray? -> obj!!.addAll(c!!) })
+            //如果是query MainServer
+            var clientList = JSONArray()
+            if(serverIdList.size == 1 && serverIdList.getString(0) == "MainServer"){
+                val clientName = "MainServer 已连接.\n共${ClientManager.queryOnlineClientCount()}个服务器在线."
+                clientList.add(clientName)
+            }else{
+                // 使用Java Stream API优化集合操作
+                clientList = serverIdList.stream()
+                    .filter { serverId: Any? -> serverId is String }
+                    .map<String?> { serverId: Any -> serverId as String }
+                    .map<String?> { serverIdStr: String ->
+                        val clientName: String = ClientManager.queryOnlineClient(serverIdStr)
+                        clientName
+                    }
+                    .collect(
+                        { JSONArray() },
+                        BiConsumer { obj: JSONArray?, e: String? -> obj!!.add(e) },
+                        { obj: JSONArray?, c: JSONArray? -> obj!!.addAll(c!!) })
+            }
 
             // 3. 构造响应
             val response = JSONObject()

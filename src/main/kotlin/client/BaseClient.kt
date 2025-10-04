@@ -15,7 +15,7 @@ import java.io.IOException
 abstract class BaseClient(session: ClientSession, clientType: ClientType) {
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
     abstract var mClientType: ClientType
-    abstract var mSession: ClientSession;
+    abstract var mSession: ClientSession
 
     open val logger: Logger = LoggerFactory.getLogger("BaseClient")
     open var mServerId: String = ""
@@ -69,14 +69,14 @@ abstract class BaseClient(session: ClientSession, clientType: ClientType) {
                 return true
             } catch (e: IllegalStateException) {
                 // 处理 TEXT_PARTIAL_WRITING 或其他状态异常
-                logger.error("[Websocket] 发送消息时状态异常: {}", e.message)
+                logger.error("发送消息时状态异常: {}", e.message)
                 coroutineScope.launch {
                     close(CloseReason.Codes.NORMAL, "Connection state invalid") // 主动关闭会话
                 }
                 return false
             } catch (e: IOException) {
                 // 处理 Broken pipe 或其他 IO 错误
-                logger.error("[Websocket] 发送消息失败: {}", e.message)
+                logger.error("发送消息失败: {}", e.message)
                 return false
             }
         }
@@ -114,22 +114,22 @@ abstract class BaseClient(session: ClientSession, clientType: ClientType) {
      */
     fun close(code: CloseReason.Codes, reason: String) {
         try {
-            val status: CloseReason = CloseReason(code, reason)
+            val status = CloseReason(code, reason)
             if (isActive()) {
                 coroutineScope.launch {
                     mSession.mSession.close(status)
                 }
 
                 if (ClientManager.isRegisteredServer(mServerId)) {
-                    logger.info("[Websocket]  服务端主动关闭连接, ServerId: {}", mServerId)
+                    logger.info("服务端主动关闭连接, ServerId: {}", mServerId)
                 }
             } else {
                 if (ClientManager.isRegisteredServer(mServerId)) {
-                    logger.info("[Websocket]  服务端主动关闭连接时发现客户端已离线, ServerId: {}", mServerId)
+                    logger.info("服务端主动关闭连接时发现客户端已离线, ServerId: {}", mServerId)
                 }
             }
         } catch (e: IOException) {
-            logger.error("[Websocket]  服务端主动关闭连接时发生错误:", e)
+            logger.error("服务端主动关闭连接时发生错误:", e)
         }
     }
 

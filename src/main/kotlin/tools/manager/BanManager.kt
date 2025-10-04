@@ -84,4 +84,21 @@ object BanManager {
             return false
         }
     }
+
+    //查询封禁原因
+    fun queryBanReason(serverId: String?): String? {
+        val sql = "SELECT reason FROM bans WHERE server_id = ?"
+        try {
+            connection.prepareStatement(sql).use { pstmt ->
+                pstmt.setString(1, serverId)
+                val rs = pstmt.executeQuery()
+                if (rs.next()) {
+                    return rs.getString("reason")
+                }
+            }
+        } catch (e: SQLException) {
+            e.printStackTrace()
+        }
+        return null
+    }
 }

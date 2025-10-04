@@ -19,14 +19,22 @@ import java.util.function.Consumer
 object Server_handle_ShakeHand: BaseEvent() {
     override val logger: Logger = LoggerFactory.getLogger("Server_handle_ShakeHand")
 
-    override fun run(): Boolean? {
-        return false;
+    override fun run(): Boolean {
+        return false
+    }
+
+    fun sendShakeHandPack(serverClient: ServerClient,msg:String,code:Int,needShutdown: Boolean){
+        val shakeHandPack = JSONObject()
+        shakeHandPack["code"] = code
+        shakeHandPack["msg"] = msg
+        serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
+        if(needShutdown){
+            serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, msg)
+        }
     }
 
     fun botClientAllowConnect(serverClient: ServerClient) {
         val botClient = ClientManager.getBotClient()
-
-        val shakeHandPack = JSONObject()
         val botQueryPack = JSONObject()
         val serverId: String = serverClient.mServerId
         botQueryPack["serverId"] = serverId
@@ -36,33 +44,28 @@ object Server_handle_ShakeHand: BaseEvent() {
                 val responseHashKey = response!!.getString("hashKey")
                 if (serverClient.mHashKey != responseHashKey) {
                     val msg = "客户端密钥错误"
-                    shakeHandPack["code"] = 3
-                    shakeHandPack["msg"] = msg
-                    serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
-                    serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, msg)
+                    sendShakeHandPack(serverClient,msg,3,true)
                     return@Consumer
                 }
                 if (ClientManager.isRegisteredServer(serverId)) { //顶替连接
-                    val oriClient: ServerClient? = ClientManager.getServerPackageById(serverId)?.mServerClient
+                    val oriClient: ServerClient? = ClientManager.getServerPackageById(serverId).mServerClient
                     val msg = "serverId重复，已将本次连接顶替上一次连接..."
-                    shakeHandPack["code"] = 2
-                    shakeHandPack["msg"] = msg
-                    serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
+                    sendShakeHandPack(serverClient,msg,2,false)
                     oriClient?.shutdown(CloseReason.Codes.VIOLATED_POLICY, "顶替连接.")
                 } else {
-                    shakeHandPack["code"] = 1
-                    shakeHandPack["msg"] = ""
-                    serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
+                    sendShakeHandPack(serverClient,"握手成功",1,false)
                 }
 
                 ClientManager.registerServer(serverId, serverClient)
-                logger.info("[Websocket]  服务器握手成功, ServerId: {}", serverId)
+                logger.info("服务器握手成功, ServerId: {}", serverId)
             })
     }
 
+
+
     fun runShake(session: ClientSession): Boolean {
-        val serverId: String? = mBody.getString("serverId")
-        val hashKey: String? = mBody.getString("hashKey")
+        val serverId: String = mBody.getString("serverId")?: ""
+        val hashKey: String = mBody.getString("hashKey")?: ""
 
         val platform: String = mBody.getString("platform")?: "Unknown"
         val name: String = mBody.getString("name")?: "Unknown"
@@ -70,15 +73,9 @@ object Server_handle_ShakeHand: BaseEvent() {
 
         val serverClient = ServerClient(session)
 
-        if (serverId == null || serverId.isEmpty()) {
+        if (serverId.isEmpty()) {
             //拒绝连接
             serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, "serverId为空.")
-            return false
-        }
-
-        if (hashKey == null || hashKey.isEmpty()) {
-            //拒绝连接
-            serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, "hashKey为空.")
             return false
         }
 
@@ -88,26 +85,25 @@ object Server_handle_ShakeHand: BaseEvent() {
         serverClient.name = name
         serverClient.version = version
 
-        val shakeHandPack = JSONObject()
-
-
-
         //检测是否被ban
         if (BanManager.isBanned(serverId)) {
             val msg = "服务器被封禁，请联系机器人管理员查看详情."
-            shakeHandPack["code"] = 8
-            shakeHandPack["msg"] = msg
-            serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
-            serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, msg)
+            sendShakeHandPack(serverClient,msg,8,true)
+            return false
+        }
+
+        //记录连接次数并检测是否是频繁连接
+        if(ClientManager.recordConnectionAttempt(serverId)){
+            //频繁连接
+            val msg = "频繁连接导致的服务器被封禁，请联系机器人管理员查看详情."
+            sendShakeHandPack(serverClient,msg,8,true)
             return false
         }
 
         if (serverClient.mHashKey.isEmpty()) { //等待注册服务器
             ClientManager.putAbsentServer(serverId, serverClient)
             val msg = "等待绑定"
-            shakeHandPack["code"] = 6
-            shakeHandPack["msg"] = msg
-            serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
+            sendShakeHandPack(serverClient,msg,6,false)
             return false
         }
 
@@ -117,16 +113,11 @@ object Server_handle_ShakeHand: BaseEvent() {
         // 处理开发版提示
         if ("dev" == clientVersion) {
             val msg = "您正在使用的是开发版，如有问题请在对应适配器的GitHub仓库中提出Issues"
-            shakeHandPack["code"] = 2
-            shakeHandPack["msg"] = msg
-            serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
+            sendShakeHandPack(serverClient,msg,2,false)
         } else if (!isVersionAllowed(clientVersion, latestVersion)) {
             val msg =
                 "插件版本过低，最新版本为:$latestVersion，您当前版本为:$clientVersion。请更新插件后重试。"
-            shakeHandPack["code"] = 4
-            shakeHandPack["msg"] = msg
-            serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
-            serverClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, msg)
+            sendShakeHandPack(serverClient,msg,4,true)
             return false
         }
 
@@ -136,9 +127,7 @@ object Server_handle_ShakeHand: BaseEvent() {
         if (botClient == null || !botClient.isActive()) {
             val msg =
                 "BotClient尚未连接，已将您的请求加入等待队列，正在等待BotClient连接. 长时间未连接请联系机器人管理员."
-            shakeHandPack["code"] = 5
-            shakeHandPack["msg"] = msg
-            serverClient.sendMessage(ServerSendEvent.ServerShakeHand, shakeHandPack)
+            sendShakeHandPack(serverClient,msg,5,false)
             ClientManager.putWaitingBotClientList(serverId, serverClient)
             return false
         }

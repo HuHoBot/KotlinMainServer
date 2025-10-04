@@ -19,8 +19,8 @@ object Bot_handle_SendPack2Server: BaseEvent() {
             val data: JSONObject = mBody.getJSONObject("data")
 
             // 2. 获取客户端实例（避免重复调用）
-            val serverPack: ServerPack? = ClientManager.getServerPackageById(serverId)
-            val serverClient: ServerClient? = serverPack?.mServerClient
+            val serverPack: ServerPack = ClientManager.getServerPackageById(serverId)
+            val serverClient: ServerClient? = serverPack.mServerClient
 
             // 3. 构造响应状态包
             val statusPack = JSONObject()
@@ -31,9 +31,9 @@ object Bot_handle_SendPack2Server: BaseEvent() {
                 try {
                     status = serverClient.sendMessage(getServerSendEvent( type), data, mPackId)
                 } catch (e: IllegalArgumentException) {
-                    logger.error("Invalid event type: {}", type, e)
+                    logger.error("未知的类型: {}", type, e)
                 } catch (e: Exception) {
-                    logger.error("Failed to send message to server", e)
+                    logger.error("无法发送数据给服务器", e)
                 }
             }
 
@@ -42,12 +42,12 @@ object Bot_handle_SendPack2Server: BaseEvent() {
             if (botClient != null) {
                 botClient!!.sendMessage(BotClientSendEvent.BotCallBack, statusPack, mPackId)
             } else {
-                logger.warn("BotClient is null, cannot send callback")
+                logger.warn("BotClient为空,不能回调")
             }
 
             return true
         } catch (e: Exception) {
-            logger.error("Error in Bot_handleSendPack2Server", e)
+            logger.error("BotClient处理回调时发生了错误", e)
             return false
         }
     }

@@ -5,12 +5,15 @@ import cn.huohuas001.events.bot.EventEnum.BotClientSendEvent
 import cn.huohuas001.tools.getPackID
 import com.alibaba.fastjson2.JSONObject
 import io.ktor.websocket.*
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.util.concurrent.CompletableFuture
 
 class BotClient(
     override var mSession: ClientSession
 ) : BaseClient(mSession, ClientType.Bot) {
     override var mClientType: ClientType = ClientType.Bot
+    override val logger: Logger = LoggerFactory.getLogger("BotClient")
 
     /**
      * 发送消息
@@ -38,7 +41,6 @@ class BotClient(
      * 发送请求并等待响应
      * @param type 消息类型
      * @param body 消息内容
-     * @param packId 包id
      * @return 响应结果
      */
     fun sendRequestAndAwaitResponse(type: BotClientSendEvent, body: JSONObject): CompletableFuture<JSONObject> {

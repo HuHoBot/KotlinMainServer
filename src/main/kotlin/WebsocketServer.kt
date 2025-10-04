@@ -93,7 +93,7 @@ object WebsocketServer {
                     }
                 }
             } catch (e: IOException) {
-                logger.error("[Websocket] 关闭超时连接时出错", e)
+                logger.error("关闭超时连接时出错", e)
             }
         }
     }
@@ -109,7 +109,7 @@ object WebsocketServer {
         val serverPackage = ClientManager.getServerPackageBySession(session)
         if (serverPackage != null) {
             if (ClientManager.isRegisteredServer(serverPackage.mServerId)) {
-                logger.info("[Websocket] 客户端断开连接, ServerId: {}", serverPackage.mServerId)
+                logger.info("客户端断开连接, ServerId: {}", serverPackage.mServerId)
             }
             ClientManager.unRegisterServer(serverPackage.mServerId)
         }
@@ -117,7 +117,7 @@ object WebsocketServer {
 
     fun handleError(session: WebSocketSession, error: Exception) {
         coroutineScope.launch { session.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "Error Message.")) }
-        logger.error("[Websocket] 处理消息时发生错误", error)
+        logger.error("处理消息时发生错误", error)
     }
 
     fun addCallback(id: String, callback: CompletableFuture<JSONObject>) {
@@ -162,14 +162,14 @@ object WebsocketServer {
                         session.mSession.close(CloseReason(CloseReason.Codes.NORMAL, "无效的客户端连接"))
                     }
                 } catch (e: IOException) {
-                    logger.error("[Websocket] 处理无效客户端连接时发生错误:", e)
+                    logger.error("处理无效客户端连接时发生错误:", e)
                 }
                 return
             }
             val msgPack = ActionPack(eventType, body, packId, client)
             event.eventCall(msgPack)
         } else {
-            logger.error("[Websocket] 未找到Server处理程序: {}", msgType)
+            logger.error("未找到Server处理程序: {}", msgType)
         }
     }
 
@@ -191,7 +191,7 @@ object WebsocketServer {
             val msgPack = ActionPack(eventType, body, packId, ClientManager.getBotClient())
             event.eventCall(msgPack)
         } else {
-            logger.error("[Websocket] 未找到Bot处理程序: {}", msgType)
+            logger.error("未找到Bot处理程序: {}", msgType)
         }
     }
 
@@ -204,13 +204,13 @@ object WebsocketServer {
             val packId = header.getString("id")
 
             if(msgType == null || packId == null){
-                logger.error("[Websocket] 收到无效的封包: {}", payload)
+                logger.error("收到无效的封包: {}", payload)
                 try {
                     coroutineScope.launch {
                         session.mSession.close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "无效的封包"))
                     }
                 } catch (e: IOException) {
-                    logger.error("[Websocket] 处理无效封包时发生错误:", e)
+                    logger.error("处理无效封包时发生错误:", e)
                 }
                 return
             }
@@ -220,7 +220,7 @@ object WebsocketServer {
 
             //执行回调消息
             if (responseFutureList.containsKey(packId)) {
-                logger.debug("[Websocket] 收到response消息: {}", payload)
+                logger.debug("收到response消息: {}", payload)
                 logger.debug("处理事件回调 {}", packId)
                 val responseFuture = responseFutureList[packId]
                 if (responseFuture != null && !responseFuture.isDone) {
@@ -237,7 +237,7 @@ object WebsocketServer {
                 handleServerMessage(session, messagePack)
             }
         } catch (e: Exception) {
-            logger.error("[Websocket] 处理消息时发生错误", e)
+            logger.error("处理消息时发生错误", e)
         }
     }
 

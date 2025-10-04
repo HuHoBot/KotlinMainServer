@@ -21,16 +21,27 @@ object ClientManager {
     private val absentRegisteredServers: MutableMap<String, ServerClient> = ConcurrentHashMap<String, ServerClient>()
     //等待BotClient连接队列
     private val waitingBotClientList: MutableMap<String, ServerClient> = ConcurrentHashMap<String, ServerClient>()
+
+    // 连接/断连计数器和最后事件时间
+    private val connectionAttemptCount: MutableMap<String, Int> = ConcurrentHashMap()
+    private val lastConnectionAttemptTime: MutableMap<String, Long> = ConcurrentHashMap()
+
     //心跳超时时间
-    private const val HeartbeatTimeOut: Long = 60*1000
+    private const val HEARTBEAT_TIME_MILLIS: Long = 60 * 1000L
+    // 连接失败次数
+    private const val CONNECT_FAILED_MAX_ATTEMPTS = 5
+    // 断连失败清理时间
+    private const val CONNECT_FAILED_TIME_WINDOW_MILLIS = 60 * 1000L // 1分钟
 
     private var mBotClient: BotClient? = null
     //心跳检测协程
-    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val heartbeat_coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+
 
     init {
         // 每隔5秒检查一次心跳，替代原来的 scheduler.scheduleAtFixedRate
-        coroutineScope.launch {
+        heartbeat_coroutineScope.launch {
             while (isActive) {
                 delay(20*1000)
                 checkHeartbeats()
@@ -85,7 +96,7 @@ object ClientManager {
      * 添加未注册服务器
      */
     fun putAbsentServer(serverId: String, serverClient: ServerClient) {
-        logger.info("已将服务器 ${serverId} 加入未注册服务器列表")
+        logger.info("已将服务器 $serverId 加入未注册服务器列表")
         absentRegisteredServers[serverId] = serverClient
     }
 
@@ -118,12 +129,12 @@ object ClientManager {
      * @param serverId 服务器id
      * @return 服务器对象包
      */
-    fun getServerPackageById(serverId: String): ServerPack? {
+    fun getServerPackageById(serverId: String): ServerPack {
         if (registeredServers.containsKey(serverId)) {
-            return ServerPack(serverId, registeredServers.get(serverId))
+            return ServerPack(serverId, registeredServers[serverId])
         }
         if (absentRegisteredServers.containsKey(serverId)) {
-            return ServerPack(serverId, absentRegisteredServers.get(serverId))
+            return ServerPack(serverId, absentRegisteredServers[serverId])
         }
         return ServerPack("", null)
     }
@@ -148,15 +159,12 @@ object ClientManager {
         return serverPack.get()
     }
 
-    fun queryOnlineClient(serverId: String): String? {
-        val serverPack: ServerPack? = getServerPackageById(serverId)
-        if (serverPack != null) {
-            if (serverPack.mServerClient != null) {
-                return serverPack.mServerClient.name
-            }
-            return ""
+    fun queryOnlineClient(serverId: String): String {
+        val serverPack: ServerPack = getServerPackageById(serverId)
+        if (serverPack.mServerClient != null) {
+            return serverPack.mServerClient.name
         }
-        return ""
+        return "Unknown Server"
     }
 
     /**
@@ -204,9 +212,9 @@ object ClientManager {
      */
     private fun checkHeartbeatsForMap(clientMap: MutableMap<String, ServerClient>) {
         clientMap.values.removeIf { client: ServerClient ->
-            if (client.isTimeout(HeartbeatTimeOut)) {
+            if (client.isTimeout(HEARTBEAT_TIME_MILLIS)) {
                 logger.info(
-                    "[ClientManager]  客户端({})心跳超时，自动断开, ServerId: {}",
+                    "客户端({})心跳超时，自动断开, ServerId: {}",
                     client.getRemoteAddress(),
                     client.mServerId
                 )
@@ -215,5 +223,39 @@ object ClientManager {
             }
             false
         }
+    }
+
+    /**
+     * 记录连接尝试并检查是否需要封禁
+     * @param serverId 服务器ID
+     * @return true表示被封禁，false表示允许连接
+     */
+    fun recordConnectionAttempt(serverId: String): Boolean {
+        val currentTime = System.currentTimeMillis()
+
+        // 检查时间窗口是否需要重置
+        val lastTime = lastConnectionAttemptTime[serverId] ?: 0L
+        if (currentTime - lastTime > CONNECT_FAILED_TIME_WINDOW_MILLIS) {
+            // 重置计数器
+            connectionAttemptCount[serverId] = 0
+        }
+
+        // 更新计数和时间
+        val currentCount = connectionAttemptCount.getOrDefault(serverId, 0) + 1
+        connectionAttemptCount[serverId] = currentCount
+        lastConnectionAttemptTime[serverId] = currentTime
+
+        // 检查是否超过阈值
+        if (currentCount >= CONNECT_FAILED_MAX_ATTEMPTS) {
+            BanManager.banServer(serverId,"频繁连接/断连")
+
+            // 清理计数器
+            connectionAttemptCount.remove(serverId)
+            lastConnectionAttemptTime.remove(serverId)
+
+            return true
+        }
+
+        return false
     }
 }

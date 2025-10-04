@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "cn.huohuas001"
-version = "0.0.1"
+version = "0.0.2"
 
 val kotlin = "2.2.20"
 val ktor = "3.3.0"
@@ -37,25 +37,6 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host:$ktor")
 }
 
-tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
-    // 启用最小化依赖
-    minimize {
-        exclude(dependency("org.slf4j:.*"))
-        exclude(dependency("ch.qos.logback:.*"))
-    }
-
-    // 排除不必要的文件
-    exclude("META-INF/*.SF")
-    exclude("META-INF/*.DSA")
-    exclude("META-INF/*.RSA")
-    exclude("META-INF/*.MF")
-
-    // 合并服务文件
-    mergeServiceFiles()
-
-    // 压缩配置
-    isZip64 = true
-}
 
 
 
