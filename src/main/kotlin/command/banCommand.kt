@@ -13,12 +13,12 @@ object banCommand: BaseCommand() {
         }
 
         val serverId = args[0]
-        var reason: String? = ""
+        var reason: String? = "无"
         if (args.size > 1) {
             reason = args[1]
         }
 
-        if (banServer(serverId, reason)) {
+        if (banServer(serverId, reason,-1)) {
             logger.info("成功封禁服务器: {}", serverId)
             return true
         } else {

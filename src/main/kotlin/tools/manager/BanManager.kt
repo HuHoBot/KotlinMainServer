@@ -12,6 +12,7 @@ object BanManager {
     lateinit var connection: Connection
     private val logger: Logger = LoggerFactory.getLogger("BanManager")
 
+    // 在 initializeDatabase 函数中更新表结构
     fun initializeDatabase() {
         try {
             // 确保 data 目录存在
@@ -26,7 +27,8 @@ object BanManager {
                     "CREATE TABLE IF NOT EXISTS bans (" +
                             "server_id TEXT PRIMARY KEY," +
                             "reason TEXT," +
-                            "banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            "banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "unban_time INTEGER DEFAULT -1" +  // 添加解封时间字段
                             ")"
                 )
             }
@@ -39,13 +41,18 @@ object BanManager {
 
     // 检查是否被封禁
     fun isBanned(serverId: String?): Boolean {
-        val sql = "SELECT server_id FROM bans WHERE server_id = ?"
+        val sql = "SELECT unban_time FROM bans WHERE server_id = ?"
 
         try {
             connection.prepareStatement(sql).use { pstmt ->
                 pstmt.setString(1, serverId)
                 val rs = pstmt.executeQuery()
-                return rs.next()
+                if (rs.next()) {
+                    val unbanTime = rs.getLong("unban_time")
+                    // 如果是-1表示永封，或者当前时间小于解封时间则仍被封禁
+                    return unbanTime == -1L || System.currentTimeMillis() < unbanTime
+                }
+                return false
             }
         } catch (e: SQLException) {
             e.printStackTrace()
@@ -54,13 +61,14 @@ object BanManager {
     }
 
     // 添加封禁记录
-    fun banServer(serverId: String?, reason: String?): Boolean {
-        val sql = "INSERT OR REPLACE INTO bans(server_id, reason) VALUES(?,?)"
+    fun banServer(serverId: String?, reason: String?, unbanTime: Long = -1): Boolean {
+        val sql = "INSERT OR REPLACE INTO bans(server_id, reason, unban_time) VALUES(?,?,?)"
 
         try {
             connection.prepareStatement(sql).use { pstmt ->
                 pstmt.setString(1, serverId)
                 pstmt.setString(2, reason)
+                pstmt.setLong(3, unbanTime)  // 设置解封时间
                 pstmt.executeUpdate()
                 return true
             }
@@ -94,6 +102,22 @@ object BanManager {
                 val rs = pstmt.executeQuery()
                 if (rs.next()) {
                     return rs.getString("reason")
+                }
+            }
+        } catch (e: SQLException) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    fun queryUnbanTime(serverId: String?): Long? {
+        val sql = "SELECT unban_time FROM bans WHERE server_id = ?"
+        try {
+            connection.prepareStatement(sql).use { pstmt ->
+                pstmt.setString(1, serverId)
+                val rs = pstmt.executeQuery()
+                if (rs.next()) {
+                    return rs.getLong("unban_time")
                 }
             }
         } catch (e: SQLException) {

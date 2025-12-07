@@ -29,6 +29,7 @@ object CommandManager {
         registerCommand("ban", banCommand)
         registerCommand("help", helpCommand)
         registerCommand("exit", exitCommand)
+        registerCommand("stop", exitCommand)
         registerCommand("unban", unbanCommand)
         registerCommand("list", listCommand)
         registerCommand("shutdown", shutdownCommand)

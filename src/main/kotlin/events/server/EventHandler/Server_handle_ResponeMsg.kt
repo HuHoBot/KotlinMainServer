@@ -10,7 +10,8 @@ object Server_handle_ResponeMsg: BaseEvent () {
     override fun run(): Boolean {
         if (!mPackId.isEmpty()) {
             val msg: String = mBody.getString("msg")
-            botClient!!.callBack(msg, mPackId)
+            val callbackConvert:Int = mBody.getInteger("callbackConvert")
+            botClient!!.textCallBack(msg, callbackConvert, mPackId)
         }
         return true
     }

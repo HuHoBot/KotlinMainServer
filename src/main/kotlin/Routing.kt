@@ -47,7 +47,7 @@ fun Application.configureRouting() {
                     }
                 }
             } catch (e: Exception) {
-                WebsocketServer.handleError(session, e)
+                WebsocketServer.handleError(clientSession, e)
             } finally {
                 // 确保连接关闭时进行清理
                 WebsocketServer.handleConnectionClosed(clientSession, CloseReason(CloseReason.Codes.NORMAL, "Connection closed"))

@@ -36,13 +36,15 @@ object Server_handle_BindConfirm: BaseEvent() {
                         addAdminPack["group"] = groupOpenid
                         addAdminPack["author"] = author
                         botClient!!.sendMessage(BotClientSendEvent.BotAddAdmin, addAdminPack, mPackId)
-                        botClient!!.callBack(
+                        botClient!!.textCallBack(
                             "已向服务端下发配置文件，并添加您为机器人管理员，如有需要请使用`/管理帮助`来查看管理员命令帮助",
+                            0,
                             mPackId
                         )
                     } else {
-                        botClient!!.callBack(
+                        botClient!!.textCallBack(
                             "无法向Id为" + serverId + "的服务器下发配置文件，请管理员检查连接状态",
+                            0,
                             mPackId
                         )
                     }

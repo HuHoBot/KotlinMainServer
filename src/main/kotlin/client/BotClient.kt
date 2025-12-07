@@ -71,9 +71,14 @@ class BotClient(
      * @param msg 回调内容
      * @param packId 包id
      */
-    fun callBack(msg: String, packId: String) {
+    fun textCallBack(msg: String, callbackConvert:Int = 0,packId: String) {
         val body = JSONObject()
-        body["param"] = msg
+
+        val packedMsg = JSONObject()
+        packedMsg["text"] = msg
+        packedMsg["callbackConvert"] = callbackConvert
+
+        body["param"] = packedMsg
         sendMessage(BotClientSendEvent.BotCallbackFunc, body, packId)
     }
 
@@ -82,8 +87,9 @@ class BotClient(
      * @param msg 回调内容
      * @param packId 包id
      */
-    fun callBack(msg: JSONObject, packId: String) {
+    fun jsonCallBack(msg: JSONObject, packId: String) {
         val body = JSONObject()
+
         body["param"] = msg
         sendMessage(BotClientSendEvent.BotCallbackFunc, body, packId)
     }

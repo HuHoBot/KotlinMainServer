@@ -115,9 +115,30 @@ object WebsocketServer {
         }
     }
 
-    fun handleError(session: WebSocketSession, error: Exception) {
-        coroutineScope.launch { session.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "Error Message.")) }
-        logger.error("处理消息时发生错误", error)
+    fun handleError(session: ClientSession, error: Exception) {
+        coroutineScope.launch {
+            when (error) {
+                is IOException -> {
+                    if (error.message?.contains("Ping timeout") == true) {
+                        // 直接断开连接，不发送关闭帧避免再次触发超时
+                        try {
+                            session.mSession.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Ping timeout detected"))
+                        } catch (e: Exception) {
+                            logger.warn("关闭Ping超时连接时发生错误", e)
+                        }
+                    } else {
+                        session.mSession.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "IO Error: ${error.message}"))
+                    }
+                }
+                else -> {
+                    session.mSession.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "Error Message."))
+                }
+            }
+        }
+        if(error.message?.contains("Ping timeout") == false){
+            val clientId = ClientManager.getServerPackageBySession(session)?.mServerId?:"Unknown Server"
+            logger.error("$clientId 处理消息时发生错误",error)
+        }
     }
 
     fun addCallback(id: String, callback: CompletableFuture<JSONObject>) {

@@ -10,6 +10,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import cn.huohuas001.events.server.EventHandler.Server_handle_ShakeHand
 import cn.huohuas001.tools.pack.ServerPack
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 object ClientManager {
@@ -29,7 +32,7 @@ object ClientManager {
     //心跳超时时间
     private const val HEARTBEAT_TIME_MILLIS: Long = 60 * 1000L
     // 连接失败次数
-    private const val CONNECT_FAILED_MAX_ATTEMPTS = 5
+    private const val CONNECT_FAILED_MAX_ATTEMPTS = 15
     // 断连失败清理时间
     private const val CONNECT_FAILED_TIME_WINDOW_MILLIS = 60 * 1000L // 1分钟
 
@@ -164,7 +167,7 @@ object ClientManager {
         if (serverPack.mServerClient != null) {
             return serverPack.mServerClient.name
         }
-        return "Unknown Server"
+        return ""
     }
 
     /**
@@ -247,7 +250,12 @@ object ClientManager {
 
         // 检查是否超过阈值
         if (currentCount >= CONNECT_FAILED_MAX_ATTEMPTS) {
-            BanManager.banServer(serverId,"频繁连接/断连")
+            val unbanTime:Long = System.currentTimeMillis() + 5 * 60 * 1000L
+            // 创建日期格式化器
+            val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val date = Date(unbanTime)
+            val formattedDate = formatter.format(date)
+            BanManager.banServer(serverId,"频繁连接/断连，于 $formattedDate 解封",unbanTime)
 
             // 清理计数器
             connectionAttemptCount.remove(serverId)

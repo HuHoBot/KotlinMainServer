@@ -87,7 +87,8 @@ object Server_handle_ShakeHand: BaseEvent() {
 
         //检测是否被ban
         if (BanManager.isBanned(serverId)) {
-            val msg = "服务器被封禁，请联系机器人管理员查看详情."
+            val reason = BanManager.queryBanReason(serverId)
+            val msg = "服务器被封禁，请联系机器人管理员查看详情.原因:$reason"
             sendShakeHandPack(serverClient,msg,8,true)
             return false
         }

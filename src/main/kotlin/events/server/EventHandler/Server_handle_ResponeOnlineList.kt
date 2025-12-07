@@ -11,7 +11,7 @@ object Server_handle_ResponeOnlineList: BaseEvent () {
     override fun run(): Boolean {
         if (!mPackId.isEmpty()) {
             val msg: JSONObject = mBody.getJSONObject("list")
-            botClient!!.callBack(msg, mPackId)
+            botClient!!.jsonCallBack(msg, mPackId)
         }
         return true
     }

@@ -10,7 +10,7 @@ object Server_handle_ResponeWhiteList: BaseEvent () {
     override fun run(): Boolean {
         if (!mPackId.isEmpty()) {
             val msg: String = mBody.getString("list")
-            botClient!!.callBack(msg, mPackId)
+            botClient!!.textCallBack(msg, 0,mPackId)
         }
         return true
     }
