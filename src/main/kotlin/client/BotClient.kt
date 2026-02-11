@@ -10,51 +10,25 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.CompletableFuture
 
 class BotClient(
-    override var mSession: ClientSession
-) : BaseClient(mSession, ClientType.Bot) {
-    override var mClientType: ClientType = ClientType.Bot
+    override var session: ClientSession
+) : BaseClient(session, ClientType.Bot) {
+    override var clientType: ClientType = ClientType.Bot
     override val logger: Logger = LoggerFactory.getLogger("BotClient")
 
-    /**
-     * 发送消息
-     * @param type 消息类型
-     * @param body 消息内容
-     * @return 是否发送成功
-     */
     fun sendMessage(type: BotClientSendEvent, body: JSONObject): Boolean {
-        val packId: String = getPackID()
+        val packId = getPackID()
         return sendMessage(type, body, packId)
     }
 
-    /**
-     * 发送消息
-     * @param type 消息类型
-     * @param body 消息内容
-     * @param packId 包id
-     * @return 是否发送成功
-     */
     fun sendMessage(type: BotClientSendEvent, body: JSONObject, packId: String): Boolean {
         return baseSendMessage(type.eventName, body, packId)
     }
 
-    /**
-     * 发送请求并等待响应
-     * @param type 消息类型
-     * @param body 消息内容
-     * @return 响应结果
-     */
     fun sendRequestAndAwaitResponse(type: BotClientSendEvent, body: JSONObject): CompletableFuture<JSONObject> {
-        val packId: String = getPackID()
+        val packId = getPackID()
         return sendRequestAndAwaitResponse(type, body, packId)
     }
 
-    /**
-     * 发送请求并等待响应
-     * @param type 消息类型
-     * @param body 消息内容
-     * @param packId 包id
-     * @return 响应结果
-     */
     fun sendRequestAndAwaitResponse(
         type: BotClientSendEvent,
         body: JSONObject,
@@ -66,37 +40,21 @@ class BotClient(
         return responseFuture
     }
 
-    /**
-     * 回调
-     * @param msg 回调内容
-     * @param packId 包id
-     */
-    fun textCallBack(msg: String, callbackConvert:Int = 0,packId: String) {
+    fun textCallBack(msg: String, callbackConvert: Int = 0, packId: String) {
         val body = JSONObject()
-
         val packedMsg = JSONObject()
         packedMsg["text"] = msg
         packedMsg["callbackConvert"] = callbackConvert
-
         body["param"] = packedMsg
         sendMessage(BotClientSendEvent.BotCallbackFunc, body, packId)
     }
 
-    /**
-     * 回调
-     * @param msg 回调内容
-     * @param packId 包id
-     */
     fun jsonCallBack(msg: JSONObject, packId: String) {
         val body = JSONObject()
-
         body["param"] = msg
         sendMessage(BotClientSendEvent.BotCallbackFunc, body, packId)
     }
 
-    /**
-     * 关闭连接
-     */
     fun shutdown(code: CloseReason.Codes, reason: String) {
         val body = JSONObject()
         body["msg"] = reason

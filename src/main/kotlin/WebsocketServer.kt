@@ -1,7 +1,5 @@
 package cn.huohuas001
 
-/*import cn.huohuas001.client.BotClient
-import cn.huohuas001.client.ServerClient*/
 import cn.huohuas001.client.ClientSession
 import cn.huohuas001.events.BaseEvent
 import cn.huohuas001.events.bot.EventEnum.BotClientRecvEvent
@@ -29,31 +27,24 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.LinkedHashMap
 
 object WebsocketServer {
-    //Logger日志
     private val logger = LoggerFactory.getLogger("Server")
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
-    //回调消息队列
     private val responseFutureList: MutableMap<String, CompletableFuture<JSONObject>> =
         object : LinkedHashMap<String, CompletableFuture<JSONObject>>(1000, 0.75f, true) {
             override fun removeEldestEntry(eldest: Map.Entry<String, CompletableFuture<JSONObject>>?): Boolean {
-                return size > 100 // 超出容量自动移除最旧条目
+                return size > 100
             }
         }
 
-    // 管理活动连接
     private val activeConnections: MutableMap<String, ClientSession> = ConcurrentHashMap(512)
     private val serverEventMapping = mutableMapOf<ServerRecvEvent, BaseEvent>()
     private val botEventMapping = mutableMapOf<BotClientRecvEvent, BaseEvent>()
 
-    //初始化注册事件
     init {
         try {
-            // 现有的初始化代码
-            // Server Event
             registerServerProcess(ServerRecvEvent.ServerHeartEvent, Server_handle_Heart)
             registerServerProcess(ServerRecvEvent.ServerReplySuccessEvent, Server_handle_ResponeMsg)
             registerServerProcess(ServerRecvEvent.ServerReplyErrorEvent, Server_handle_ResponeMsg)
@@ -62,7 +53,6 @@ object WebsocketServer {
             registerServerProcess(ServerRecvEvent.ServerBindConfirmEvent, Server_handle_BindConfirm)
             registerServerProcess(ServerRecvEvent.ServerChatEvent, Server_handle_Chat)
 
-            //Bot Event
             registerBotProcess(BotClientRecvEvent.BotSendServerMsgEvent, Bot_handle_SendPack2Server)
             registerBotProcess(BotClientRecvEvent.BotQueryClientListEvent, Bot_handle_QueryClientList)
             registerBotProcess(BotClientRecvEvent.BotHeartEvent, Bot_handle_Heart)
@@ -72,24 +62,18 @@ object WebsocketServer {
         }
     }
 
-    /**
-     * 处理连接建立
-     * @param session 客户端
-     * @param sessionId 会话Id
-     */
     fun handleConnectionEstablished(session: ClientSession, sessionId: String) {
         activeConnections[sessionId] = session
 
-        // 添加10秒握手超时检测
         coroutineScope.launch {
-            delay(15*1000)
+            delay(15 * 1000)
             try {
                 val serverPackage = ClientManager.getServerPackageBySession(session)
                 val botClient = ClientManager.getBotClient()
 
-                if (serverPackage == null || !ClientManager.isShakeHand(serverPackage.mServerId)) {
-                    if (botClient != null && botClient.mSession != session) {
-                        session.mSession.close(CloseReason(CloseReason.Codes.NORMAL, "握手超时"))
+                if (serverPackage.serverClient == null || !ClientManager.isShakeHand(serverPackage.serverId)) {
+                    if (botClient != null && botClient.session != session) {
+                        session.session.close(CloseReason(CloseReason.Codes.NORMAL, "握手超时"))
                     }
                 }
             } catch (e: IOException) {
@@ -98,20 +82,15 @@ object WebsocketServer {
         }
     }
 
-    /**
-     * 处理连接关闭
-     * @param session 断开的连接
-     * @param reason 断开原因
-     */
     fun handleConnectionClosed(session: ClientSession, reason: CloseReason?) {
-        val sessionId = getSessionId(session.mSession)
+        val sessionId = getSessionId(session.session)
         activeConnections.remove(sessionId)
         val serverPackage = ClientManager.getServerPackageBySession(session)
-        if (serverPackage != null) {
-            if (ClientManager.isRegisteredServer(serverPackage.mServerId)) {
-                logger.info("客户端断开连接, ServerId: {}", serverPackage.mServerId)
+        if (serverPackage.serverClient != null) {
+            if (ClientManager.isRegisteredServer(serverPackage.serverId)) {
+                logger.info("客户端断开连接, ServerId: {}", serverPackage.serverId)
             }
-            ClientManager.unRegisterServer(serverPackage.mServerId)
+            ClientManager.unRegisterServer(serverPackage.serverId)
         }
     }
 
@@ -120,24 +99,23 @@ object WebsocketServer {
             when (error) {
                 is IOException -> {
                     if (error.message?.contains("Ping timeout") == true) {
-                        // 直接断开连接，不发送关闭帧避免再次触发超时
                         try {
-                            session.mSession.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Ping timeout detected"))
+                            session.session.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Ping timeout detected"))
                         } catch (e: Exception) {
                             logger.warn("关闭Ping超时连接时发生错误", e)
                         }
                     } else {
-                        session.mSession.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "IO Error: ${error.message}"))
+                        session.session.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "IO Error: ${error.message}"))
                     }
                 }
                 else -> {
-                    session.mSession.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "Error Message."))
+                    session.session.close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, "Error Message."))
                 }
             }
         }
-        if(error.message?.contains("Ping timeout") == false){
-            val clientId = ClientManager.getServerPackageBySession(session)?.mServerId?:"Unknown Server"
-            logger.error("$clientId 处理消息时发生错误",error)
+        if (error.message?.contains("Ping timeout") == false) {
+            val clientId = ClientManager.getServerPackageBySession(session).serverId.ifEmpty { "Unknown Server" }
+            logger.error("$clientId 处理消息时发生错误", error)
         }
     }
 
@@ -154,33 +132,31 @@ object WebsocketServer {
     }
 
     private fun handleServerMessage(session: ClientSession, messagePack: MessagePack) {
-        val packId = messagePack.mPackId
-        val msgType = messagePack.mType
-        val body = messagePack.mBody
+        val packId = messagePack.packId
+        val msgType = messagePack.type
+        val body = messagePack.body
 
         val eventType = getServerRecvEvent(msgType)
         if (eventType == ServerRecvEvent.ServerShakeHandEvent) {
             val msgPack = ActionPack(eventType, body, packId, null)
-            val handler = Server_handle_ShakeHand
-            handler.setData(msgPack)
-            handler.runShake(session)
+            Server_handle_ShakeHand.runShake(session, msgPack)
             return
         }
 
         val event = serverEventMapping[eventType]
         if (event != null) {
             val serverPackage = ClientManager.getServerPackageBySession(session)
-            val client = serverPackage?.mServerClient
+            val client = serverPackage.serverClient
             val botClient = ClientManager.getBotClient()
             if (botClient == null) {
                 client?.shutdown(CloseReason.Codes.CANNOT_ACCEPT, "BotClient连接出现问题，请联系机器人管理员")
                 return
             }
 
-            if (client == null && botClient != session) {
+            if (client == null && botClient.session != session) {
                 try {
                     coroutineScope.launch {
-                        session.mSession.close(CloseReason(CloseReason.Codes.NORMAL, "无效的客户端连接"))
+                        session.session.close(CloseReason(CloseReason.Codes.NORMAL, "无效的客户端连接"))
                     }
                 } catch (e: IOException) {
                     logger.error("处理无效客户端连接时发生错误:", e)
@@ -195,16 +171,14 @@ object WebsocketServer {
     }
 
     private fun handleBotMessage(session: ClientSession, messagePack: MessagePack) {
-        val packId = messagePack.mPackId
-        val msgType = messagePack.mType
-        val body = messagePack.mBody
+        val packId = messagePack.packId
+        val msgType = messagePack.type
+        val body = messagePack.body
 
         val eventType = getBotRecvEvent(msgType)
         if (eventType == BotClientRecvEvent.BotShakeHandEvent) {
             val msgPack = ActionPack(eventType, body, packId, null)
-            val shakeHandEvent = Bot_handle_ShakeHand
-            shakeHandEvent.setData(msgPack)
-            shakeHandEvent.runShake(session)
+            Bot_handle_ShakeHand.runShake(session, msgPack)
             return
         }
         val event = botEventMapping[eventType]
@@ -220,15 +194,15 @@ object WebsocketServer {
         try {
             val data = JSONObject.parseObject(payload)
             val header = data.getJSONObject("header")
-            val body = data.getJSONObject("body")?: JSONObject()
+            val body = data.getJSONObject("body") ?: JSONObject()
             val msgType = header.getString("type")
             val packId = header.getString("id")
 
-            if(msgType == null || packId == null){
+            if (msgType == null || packId == null) {
                 logger.error("收到无效的封包: {}", payload)
                 try {
                     coroutineScope.launch {
-                        session.mSession.close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "无效的封包"))
+                        session.session.close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "无效的封包"))
                     }
                 } catch (e: IOException) {
                     logger.error("处理无效封包时发生错误:", e)
@@ -236,10 +210,8 @@ object WebsocketServer {
                 return
             }
 
-            //封包
             val messagePack = MessagePack(msgType, body, packId)
 
-            //执行回调消息
             if (responseFutureList.containsKey(packId)) {
                 logger.debug("收到response消息: {}", payload)
                 logger.debug("处理事件回调 {}", packId)
@@ -251,7 +223,6 @@ object WebsocketServer {
                 return
             }
 
-            //判断是否是Bot发过来的消息
             if (msgType.startsWith("BotClient.")) {
                 handleBotMessage(session, messagePack)
             } else {
@@ -263,7 +234,6 @@ object WebsocketServer {
     }
 
     private fun getSessionId(session: WebSocketSession): String {
-        // 实现获取会话ID的逻辑
         return session.hashCode().toString()
     }
 }

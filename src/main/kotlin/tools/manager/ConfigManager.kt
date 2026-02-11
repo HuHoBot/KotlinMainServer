@@ -8,39 +8,35 @@ import java.io.IOException
 import java.nio.file.Files
 
 object ConfigManager {
-    val logger: Logger = LoggerFactory.getLogger("Config")
-    const val JSON_FILE_PATH: String = "config.json"
-    var config: JSONObject = JSONObject()
+    private val logger: Logger = LoggerFactory.getLogger("Config")
+    private const val JSON_FILE_PATH = "config.json"
 
-    init {
-        loadConfig()
-    }
+    private var config: JSONObject = loadConfig()
 
-    fun loadConfig() {
-        try {
+    private fun loadConfig(): JSONObject {
+        return try {
             val bytes = Files.readAllBytes(File(JSON_FILE_PATH).toPath())
-            this.config = JSONObject.parseObject(String(bytes))
+            JSONObject.parseObject(String(bytes))
         } catch (e: IOException) {
-            logger.error("加载配置文件失败")
+            logger.error("加载配置文件失败", e)
+            JSONObject()
         }
     }
 
-    fun getKey(): String{
-        loadConfig()
-        return config.getString("key")
+    fun reloadConfig() {
+        config = loadConfig()
+    }
+
+    fun getKey(): String {
+        return config.getString("key") ?: ""
     }
 
     fun getAllowedIp(): String? {
-        loadConfig()
         return config.getString("allowed-ip")
     }
 
     fun getLatestClientVersion(platform: String): String {
-        loadConfig()
         val clientVersionObj = config.getJSONObject("clientVersion")
-        if (clientVersionObj != null && clientVersionObj.containsKey(platform)) {
-            return clientVersionObj.getString(platform) ?: "0.0.0"
-        }
-        return "0.0.0"
+        return clientVersionObj?.getString(platform) ?: "0.0.0"
     }
 }

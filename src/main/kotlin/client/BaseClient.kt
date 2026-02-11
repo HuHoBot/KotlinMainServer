@@ -14,118 +14,80 @@ import java.io.IOException
 
 abstract class BaseClient(session: ClientSession, clientType: ClientType) {
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
-    abstract var mClientType: ClientType
-    abstract var mSession: ClientSession
+    abstract var clientType: ClientType
+    abstract var session: ClientSession
 
     open val logger: Logger = LoggerFactory.getLogger("BaseClient")
-    open var mServerId: String = ""
-    open var mHashKey: String = ""
-    open var mLastHeartbeatTime: Long = 0
-
+    open var serverId: String = ""
+    open var hashKey: String = ""
+    open var lastHeartbeatTime: Long = 0
 
     init {
-        mClientType = clientType
-        mSession = session
-        //连接进入时更新最后一次心跳时间
+        this.clientType = clientType
+        this.session = session
         updateLastHeartbeatTime()
     }
 
-    /**
-     * 获取数据包
-     * @param type
-     * @param body
-     * @param packId
-     * @return
-     */
-    private fun getDataPack(type: String,body: JSONObject,packId: String): JSONObject {
+    private fun getDataPack(type: String, body: JSONObject, packId: String): JSONObject {
         val dataPack = JSONObject()
-
         val header = JSONObject()
         header["type"] = type
         header["id"] = packId
-
         dataPack["header"] = header
         dataPack["body"] = body
         return dataPack
     }
 
-    /**
-     * 发送消息
-     * @param type 消息类型
-     * @param body 消息体
-     * @param packId 数据包ID
-     * @return
-     */
     fun baseSendMessage(type: String, body: JSONObject, packId: String): Boolean {
         val sendLock = ClientManager.getSendLock()
-        synchronized(sendLock){
+        synchronized(sendLock) {
             try {
-                if (!mSession.mSession.isActive) return false // 再次检查
+                if (!session.session.isActive) return false
 
-                val pack: JSONObject = getDataPack(type, body, packId)
+                val pack = getDataPack(type, body, packId)
                 coroutineScope.launch {
-                    mSession.mSession.send(pack.toJSONString())
+                    session.session.send(pack.toJSONString())
                 }
                 return true
             } catch (e: IllegalStateException) {
-                // 处理 TEXT_PARTIAL_WRITING 或其他状态异常
                 logger.error("发送消息时状态异常: {}", e.message)
                 coroutineScope.launch {
-                    close(CloseReason.Codes.NORMAL, "Connection state invalid") // 主动关闭会话
+                    close(CloseReason.Codes.NORMAL, "Connection state invalid")
                 }
                 return false
             } catch (e: IOException) {
-                // 处理 Broken pipe 或其他 IO 错误
                 logger.error("发送消息失败: {}", e.message)
                 return false
             }
         }
     }
 
-    /**
-     * 发送消息(无PackId)
-     * @param type 事件类型
-     * @param body 消息包
-     */
     fun baseSendMessage(type: String, body: JSONObject) {
-        val packId: String = getPackID()
+        val packId = getPackID()
         baseSendMessage(type, body, packId)
     }
 
-    /**
-     * 更新最后一次心跳的时间
-     */
     fun updateLastHeartbeatTime() {
-        mLastHeartbeatTime = System.currentTimeMillis()
+        lastHeartbeatTime = System.currentTimeMillis()
     }
 
-    /**
-     * 判断是否超时
-     *
-     * @param timeoutMillis 超时时间
-     * @return 是否超时 boolean
-     */
     fun isTimeout(timeoutMillis: Long): Boolean {
-        return (System.currentTimeMillis() - mLastHeartbeatTime) > timeoutMillis
+        return (System.currentTimeMillis() - lastHeartbeatTime) > timeoutMillis
     }
 
-    /**
-     * 关闭连接
-     */
     fun close(code: CloseReason.Codes, reason: String) {
         try {
             val status = CloseReason(code, reason)
             if (isActive()) {
                 coroutineScope.launch {
-                    mSession.mSession.close(status)
+                    session.session.close(status)
                 }
-
-                if (ClientManager.isRegisteredServer(mServerId)) {
-                    logger.info("服务端主动关闭连接, ServerId: {}", mServerId)
+                if (ClientManager.isRegisteredServer(serverId)) {
+                    logger.info("服务端主动关闭连接, ServerId: {}", serverId)
                 }
             } else {
-                if (ClientManager.isRegisteredServer(mServerId)) {
-                    logger.info("服务端主动关闭连接时发现客户端已离线, ServerId: {}", mServerId)
+                if (ClientManager.isRegisteredServer(serverId)) {
+                    logger.info("服务端主动关闭连接时发现客户端已离线, ServerId: {}", serverId)
                 }
             }
         } catch (e: IOException) {
@@ -135,22 +97,24 @@ abstract class BaseClient(session: ClientSession, clientType: ClientType) {
 
     fun getRemoteAddress(): String? {
         return try {
-            mSession.mIp
+            session.ip
         } catch (e: Exception) {
             null
         }
     }
 
     fun isActive(): Boolean {
-        return mSession.mSession.isActive
+        return session.session.isActive
     }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || javaClass != other.javaClass) return false
         val client = other as BaseClient
-        return mSession == client.mSession
+        return session == client.session
     }
 
-
+    override fun hashCode(): Int {
+        return session.hashCode()
+    }
 }

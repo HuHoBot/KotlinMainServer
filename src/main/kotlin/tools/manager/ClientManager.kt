@@ -7,46 +7,35 @@ import io.ktor.websocket.CloseReason
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicReference
 import cn.huohuas001.events.server.EventHandler.Server_handle_ShakeHand
 import cn.huohuas001.tools.pack.ServerPack
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-
 object ClientManager {
     private val logger = LoggerFactory.getLogger("ClientManager")
-    private val mSendLock: Object = Object()
-    // 注册的服务器
-    private val registeredServers: MutableMap<String, ServerClient> = ConcurrentHashMap<String, ServerClient>()
-    // 未注册的服务器
-    private val absentRegisteredServers: MutableMap<String, ServerClient> = ConcurrentHashMap<String, ServerClient>()
-    //等待BotClient连接队列
-    private val waitingBotClientList: MutableMap<String, ServerClient> = ConcurrentHashMap<String, ServerClient>()
+    private val sendLock = Object()
+    private val registeredServers: MutableMap<String, ServerClient> = ConcurrentHashMap()
+    private val absentRegisteredServers: MutableMap<String, ServerClient> = ConcurrentHashMap()
+    private val waitingBotClientList: MutableMap<String, ServerClient> = ConcurrentHashMap()
 
-    // 连接/断连计数器和最后事件时间
     private val connectionAttemptCount: MutableMap<String, Int> = ConcurrentHashMap()
     private val lastConnectionAttemptTime: MutableMap<String, Long> = ConcurrentHashMap()
 
-    //心跳超时时间
     private const val HEARTBEAT_TIME_MILLIS: Long = 60 * 1000L
-    // 连接失败次数
     private const val CONNECT_FAILED_MAX_ATTEMPTS = 15
-    // 断连失败清理时间
-    private const val CONNECT_FAILED_TIME_WINDOW_MILLIS = 60 * 1000L // 1分钟
+    private const val CONNECT_FAILED_TIME_WINDOW_MILLIS: Long = 60 * 1000L
 
-    private var mBotClient: BotClient? = null
-    //心跳检测协程
-    private val heartbeat_coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var botClient: BotClient? = null
+    private val heartbeatScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
 
 
     init {
-        // 每隔5秒检查一次心跳，替代原来的 scheduler.scheduleAtFixedRate
-        heartbeat_coroutineScope.launch {
+        heartbeatScope.launch {
             while (isActive) {
-                delay(20*1000)
+                delay(20 * 1000)
                 checkHeartbeats()
             }
         }
@@ -142,32 +131,23 @@ object ClientManager {
         return ServerPack("", null)
     }
 
-    fun getServerPackageBySession(session: ClientSession?): ServerPack? {
-        val serverPack: AtomicReference<ServerPack?> = AtomicReference<ServerPack?>()
-        registeredServers.forEach { (serverId: String, serverInfo: ServerClient) ->
-            if (serverInfo.mSession == session) {
-                serverPack.set(ServerPack(serverId, serverInfo))
+    fun getServerPackageBySession(session: ClientSession?): ServerPack {
+        registeredServers.forEach { (serverId, serverInfo) ->
+            if (serverInfo.session == session) {
+                return ServerPack(serverId, serverInfo)
             }
         }
-        if (serverPack.get() == null) {
-            absentRegisteredServers.forEach { (serverId: String, serverInfo: ServerClient) ->
-                if (serverInfo.mSession == session) {
-                    serverPack.set(ServerPack(serverId, serverInfo))
-                }
+        absentRegisteredServers.forEach { (serverId, serverInfo) ->
+            if (serverInfo.session == session) {
+                return ServerPack(serverId, serverInfo)
             }
         }
-        if (serverPack.get() == null) {
-            return ServerPack("", null)
-        }
-        return serverPack.get()
+        return ServerPack("", null)
     }
 
     fun queryOnlineClient(serverId: String): String {
-        val serverPack: ServerPack = getServerPackageById(serverId)
-        if (serverPack.mServerClient != null) {
-            return serverPack.mServerClient.name
-        }
-        return ""
+        val serverPack = getServerPackageById(serverId)
+        return serverPack.serverClient?.name ?: ""
     }
 
     /**
@@ -178,28 +158,21 @@ object ClientManager {
     }
 
     fun shutDownClient(serverId: String?): Boolean {
-        if (registeredServers.containsKey(serverId)) {
-            val serverClient: ServerClient = registeredServers.get(serverId)!!
-            serverClient.shutdown(CloseReason.Codes.NORMAL, "Server shutdown.")
-            return true
-        } else {
-            return false
-        }
+        val serverClient = registeredServers[serverId] ?: return false
+        serverClient.shutdown(CloseReason.Codes.NORMAL, "Server shutdown.")
+        return true
     }
 
-    fun setBotClient(botClient: BotClient) {
-        mBotClient = botClient
+    fun setBotClient(client: BotClient) {
+        botClient = client
     }
 
     fun getBotClient(): BotClient? {
-        return mBotClient
+        return botClient
     }
 
-    /**
-     * 获取发送锁
-     */
     fun getSendLock(): Object {
-        return mSendLock
+        return sendLock
     }
 
     /**
@@ -214,15 +187,15 @@ object ClientManager {
      * 检查心跳
      */
     private fun checkHeartbeatsForMap(clientMap: MutableMap<String, ServerClient>) {
-        clientMap.values.removeIf { client: ServerClient ->
+        clientMap.values.removeIf { client ->
             if (client.isTimeout(HEARTBEAT_TIME_MILLIS)) {
                 logger.info(
                     "客户端({})心跳超时，自动断开, ServerId: {}",
                     client.getRemoteAddress(),
-                    client.mServerId
+                    client.serverId
                 )
                 client.close(CloseReason.Codes.NORMAL, "Timeout.")
-                return@removeIf true // 从 Map 中移除
+                return@removeIf true
             }
             false
         }

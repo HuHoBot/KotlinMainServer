@@ -7,28 +7,24 @@ import cn.huohuas001.tools.manager.ClientManager
 import com.alibaba.fastjson2.JSONObject
 import org.slf4j.Logger
 
+data class EventContext(
+    val packId: String,
+    val body: JSONObject,
+    val client: ServerClient?,
+    val botClient: BotClient? = ClientManager.getBotClient()
+)
+
 abstract class BaseEvent {
     abstract val logger: Logger
-    lateinit var mPackId: String
-    lateinit var mBody: JSONObject
-    var mClient: ServerClient? =  null
-    var botClient: BotClient? = ClientManager.getBotClient()
 
-    fun eventCall(actionPack: ActionPack): Boolean?{
-        refreshBotClient()
-        setData(actionPack)
-        return run()
+    fun eventCall(actionPack: ActionPack): Boolean? {
+        val context = EventContext(
+            packId = actionPack.packId,
+            body = actionPack.body,
+            client = actionPack.client as? ServerClient
+        )
+        return run(context)
     }
 
-    fun setData(actionPack: ActionPack){
-        mPackId = actionPack.mPackId
-        mBody = actionPack.mBody
-        mClient = actionPack.mClient as? ServerClient
-    }
-
-    fun refreshBotClient(){
-        botClient = ClientManager.getBotClient();
-    }
-
-    abstract fun run(): Boolean?
+    abstract fun run(context: EventContext): Boolean?
 }

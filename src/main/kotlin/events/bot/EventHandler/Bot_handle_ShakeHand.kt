@@ -3,41 +3,45 @@ package events.bot
 import cn.huohuas001.client.BotClient
 import cn.huohuas001.client.ClientSession
 import cn.huohuas001.events.BaseEvent
+import cn.huohuas001.events.EventContext
 import cn.huohuas001.events.bot.EventEnum.BotClientSendEvent
 import cn.huohuas001.tools.manager.ClientManager
 import cn.huohuas001.tools.manager.ConfigManager
+import cn.huohuas001.tools.pack.ActionPack
 import com.alibaba.fastjson2.JSONObject
 import io.ktor.websocket.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-
-object Bot_handle_ShakeHand: BaseEvent() {
+object Bot_handle_ShakeHand : BaseEvent() {
     override val logger: Logger = LoggerFactory.getLogger("Bot_handle_ShakeHand")
-    override fun run(): Boolean{
+
+    override fun run(context: EventContext): Boolean {
         return false
     }
 
     private fun botClientConnect(session: ClientSession, serverId: String, hashKey: String) {
-        val shakeHandPack = JSONObject()
-        val botClient = BotClient(session)
-        botClient.mServerId = serverId
-        botClient.mHashKey = hashKey
+        val botClient = BotClient(session).apply {
+            this.serverId = serverId
+            this.hashKey = hashKey
+        }
         ClientManager.setBotClient(botClient)
-        shakeHandPack["code"] = 1
-        shakeHandPack["msg"] = ""
+
+        val shakeHandPack = JSONObject().apply {
+            put("code", 1)
+            put("msg", "")
+        }
         botClient.sendMessage(BotClientSendEvent.BotShook, shakeHandPack)
         logger.info("HuHoBot BotClient 已连接.")
 
-        //重新清空WaitingList
         ClientManager.reShakeWaitingServer()
     }
-    
-    fun runShake(session: ClientSession): Boolean{
-        val serverId: String = mBody.getString("serverId")
-        val hashKey: String = mBody.getString("hashKey")
 
-        val shakeHandPack = JSONObject()
+    fun runShake(session: ClientSession, msgPack: ActionPack): Boolean {
+        val body = msgPack.body
+        val serverId = body.getString("serverId")
+        val hashKey = body.getString("hashKey")
+
         val _botClient = BotClient(session)
 
         if (serverId != "BotClient") {
@@ -46,25 +50,26 @@ object Bot_handle_ShakeHand: BaseEvent() {
         }
 
         if (hashKey != ConfigManager.getKey()) {
-            val msg = "密钥错误"
-            shakeHandPack["code"] = 3
-            shakeHandPack["msg"] = msg
+            val shakeHandPack = JSONObject().apply {
+                put("code", 3)
+                put("msg", "密钥错误")
+            }
             _botClient.sendMessage(BotClientSendEvent.BotShook, shakeHandPack)
-            _botClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, msg)
+            _botClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, "密钥错误")
             return false
         }
 
-        val remoteIp: String = session.mIp
+        val remoteIp = session.ip
 
         if (remoteIp != ConfigManager.getAllowedIp()) {
-            val msg = "IP 地址不在允许范围内"
-
             logger.warn("有一个非法的 BotClient 尝试连接，来自 $remoteIp")
 
-            shakeHandPack["code"] = 7
-            shakeHandPack["msg"] = msg
+            val shakeHandPack = JSONObject().apply {
+                put("code", 7)
+                put("msg", "IP 地址不在允许范围内")
+            }
             _botClient.sendMessage(BotClientSendEvent.BotShook, shakeHandPack)
-            _botClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, msg)
+            _botClient.shutdown(CloseReason.Codes.VIOLATED_POLICY, "IP 地址不在允许范围内")
             return false
         }
 

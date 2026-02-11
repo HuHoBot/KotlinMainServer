@@ -5,14 +5,12 @@ import com.alibaba.fastjson2.JSONObject
 import events.Server.EventEnum.ServerSendEvent
 import org.slf4j.Logger
 import io.ktor.websocket.CloseReason
-import io.ktor.websocket.WebSocketSession
 import org.slf4j.LoggerFactory
 
 class ServerClient(
-    override var mSession: ClientSession
-) : BaseClient(mSession, ClientType.Server) {
-    override var mClientType: ClientType = ClientType.Server
-
+    override var session: ClientSession
+) : BaseClient(session, ClientType.Server) {
+    override var clientType: ClientType = ClientType.Server
     override val logger: Logger = LoggerFactory.getLogger("ServerClient")
     var platform: String = "Unknown"
     var name: String = "Server"
@@ -27,15 +25,10 @@ class ServerClient(
         return baseSendMessage(type.eventName, body, packId)
     }
 
-    /**
-     * 关闭连接
-     */
     fun shutdown(code: CloseReason.Codes, reason: String) {
         val body = JSONObject()
         body["msg"] = reason
         sendMessage(ServerSendEvent.ServerShutdown, body)
-
-        // 使用协程关闭连接
         close(code, reason)
     }
 }

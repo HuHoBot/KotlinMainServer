@@ -4,16 +4,9 @@ import cn.huohuas001.client.BaseClient
 import cn.huohuas001.events.NetworkEvent
 import com.alibaba.fastjson2.JSONObject
 
-class ActionPack(type: NetworkEvent, body: JSONObject, packId: String, client: BaseClient?) {
-    val mBody: JSONObject
-    val mPackId: String
-    val mType: NetworkEvent
-    val mClient: BaseClient?
-
-    init {
-        this.mBody = body
-        this.mPackId = packId
-        this.mType = type
-        this.mClient = client
-    }
-}
+data class ActionPack(
+    val type: NetworkEvent,
+    val body: JSONObject,
+    val packId: String,
+    val client: BaseClient?
+)
