@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "cn.huohuas001"
-version = "0.0.2"
+version = "0.0.3"
 
 val kotlin = "2.2.20"
 val ktor = "3.3.0"
