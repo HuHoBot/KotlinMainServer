@@ -1,10 +1,8 @@
-# HuHoBot-Websocket-Kotlin v0.0.2
+# HuHoBot-Websocket-Kotlin v0.0.3
 
-feat(server): 实现服务器连接频率限制与封禁机制- 新增 BanManager.queryBanReason 方法用于查询封禁原因
-- 在 ClientManager 中添加连接尝试计数器和时间窗口限制
-- 实现 recordConnectionAttempt 方法检测频繁连接并自动封禁
-- 修改握手处理逻辑，增加对频繁连接的封禁判断
-- 更新日志记录格式，移除多余的 [Websocket] 前缀- 优化 Server_handle_ShakeHand 中的握手包发送逻辑
-- 在 helpCommand 和 queryCommand 中添加封禁查询功能- 移除 ShadowJar 的最小化配置以避免依赖冲突
-- 为 BotClient 添加独立的日志记录器- 调整常量命名规范并增强连接超时检测逻辑
+refactor: 重构代码以使用Kotlin数据类和协程
+- 重构多个类为数据类以简化代码结构，使用协程替代线程处理异步任务，优化事件处理逻辑和网络通信，提升代码可读性和性能。
+- 移除冗余的init块和手动属性赋值，改为使用主构造函数。将线程操作替换为协程以提高并发性能。引入EventContext简化事件处理参数传递。优化异常处理和日志记录。
+- 重构ClientManager和BanManager以提升线程安全性和性能。简化WebsocketServer的消息处理流程，移除冗余代码。使用apply和let等Kotlin特性使代码更简洁。
+- 这些改动提高了代码的可维护性，减少了潜在的内存泄漏风险，并使异步操作更高效可靠。
 
